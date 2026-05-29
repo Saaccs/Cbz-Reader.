@@ -181,6 +181,24 @@ También debería funcionar en navegadores modernos como:
 
 ---
 
+## Compatibilidad móvil
+
+El proyecto puede funcionar en navegadores Android modernos como:
+
+- Brave
+- Chrome
+- Firefox
+
+Sin embargo:
+
+- algunas funciones pueden variar dependiendo del navegador;
+- la carga de carpetas completas puede no estar disponible en todos los dispositivos;
+- cargar muchas obras simultáneamente puede consumir memoria y afectar el rendimiento.
+
+En dispositivos móviles se recomienda cargar menos archivos al mismo tiempo.
+
+---
+
 ## Cómo usar
 
 1. Abrir la página.
