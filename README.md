@@ -55,7 +55,10 @@ cbz-reader/
 ├── index.html
 ├── style.css
 ├── app.js
-└── README.md
+├── README.md
+└── libs/
+    ├── jszip.min.js
+    └── jspdf.umd.min.js
 ```
 
 ---
