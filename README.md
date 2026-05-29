@@ -33,7 +33,7 @@ Permite cargar obras individuales o carpetas completas, leer metadata, buscar po
 
 Puedes abrir la página del proyecto desde GitHub Pages:
 
-https://saaccs.github.io/Cbz-Reader.
+https://saaccs.github.io/Cbz-Reader./
 
 Desde ahí solo debes seleccionar:
 
