@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Lector CBZ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Lector CBZ</h1>
+
+  <div class="actions">
+    <label class="btn">
+      Cargar carpeta
+      <input id="folderInput" type="file" webkitdirectory multiple hidden>
+    </label>
+
+    <label class="btn secondary">
+      Cargar obra
+      <input id="fileInput" type="file" accept=".cbz" hidden>
+    </label>
+  </div>
+</header>
+
+<main id="libraryView">
+  <div class="searchBox">
+    <input id="searchInput" type="text" placeholder="Buscar por nombre, autor o tag...">
+    <button id="clearSearchBtn">Limpiar</button>
+  </div>
+
+  <p id="status">Carga una carpeta con archivos CBZ o una obra individual.</p>
+  <section id="library" class="grid"></section>
+</main>
+
+<main id="readerView" class="hidden">
+  <div class="readerTop">
+    <button id="backBtn">← Biblioteca</button>
+    <div id="readerTitle"></div>
+
+    <div class="readerControls">
+      <button id="pdfBtn">Descargar PDF</button>
+      <button id="modeBtn">Modo cascada</button>
+      <button id="prevBtn">←</button>
+      <span id="pageInfo"></span>
+      <button id="nextBtn">→</button>
+    </div>
+  </div>
+
+  <div class="readerPage">
+    <img id="pageImage" src="">
+  </div>
+
+  <div id="cascadeView" class="cascade hidden"></div>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modalBox">
+    <button id="closeModalBtn" class="closeBtn">×</button>
+
+    <img id="modalCover" class="modalCover">
+
+    <div class="modalInfo">
+      <h2 id="modalTitle"></h2>
+      <p id="modalAuthor"></p>
+      <div id="modalTags" class="tags"></div>
+      <button id="readBtn">Leer</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
