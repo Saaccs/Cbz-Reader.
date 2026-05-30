@@ -29,22 +29,32 @@ const readBtn = document.getElementById("readBtn");
 let mangas = [];
 let selectedManga = null;
 let currentManga = null;
+let currentZip = null;
 let currentPage = 0;
 let currentPageUrl = null;
 let readerMode = "paged";
 let cascadeLoaded = false;
+let cascadeUrls = [];
 
 folderInput.addEventListener("change", async (event) => {
   const files = Array.from(event.target.files);
   const cbzFiles = files.filter(file => file.name.toLowerCase().endsWith(".cbz"));
 
+  cleanupLibrary();
+
   mangas = [];
   library.innerHTML = "";
   statusText.textContent = `Procesando ${cbzFiles.length} archivos CBZ...`;
 
-  for (const file of cbzFiles) {
-    const manga = await processCBZ(file);
+  for (let i = 0; i < cbzFiles.length; i++) {
+    statusText.textContent = `Procesando ${i + 1} / ${cbzFiles.length}...`;
+
+    const manga = await processCBZ(cbzFiles[i]);
     if (manga) mangas.push(manga);
+
+    if (i % 20 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
   }
 
   renderLibrary();
@@ -72,8 +82,7 @@ clearSearchBtn.addEventListener("click", () => {
 
 async function processCBZ(file) {
   try {
-    const buffer = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(buffer);
+    const zip = await JSZip.loadAsync(file);
 
     const imageFiles = Object.keys(zip.files)
       .filter(name => /\.(webp|jpg|jpeg|png)$/i.test(name))
@@ -96,12 +105,12 @@ async function processCBZ(file) {
 
     return {
       file,
-      zip,
       title,
       author,
       tags,
       genre: comicInfo.genre || "",
       images: imageFiles,
+      coverName,
       coverUrl
     };
 
@@ -244,7 +253,10 @@ readBtn.addEventListener("click", () => {
 });
 
 async function openReader(manga) {
+  cleanupReader();
+
   currentManga = manga;
+  currentZip = await JSZip.loadAsync(manga.file);
   currentPage = 0;
   readerMode = "paged";
   cascadeLoaded = false;
@@ -268,12 +280,15 @@ async function openReader(manga) {
 }
 
 async function showPage() {
-  if (!currentManga) return;
+  if (!currentManga || !currentZip) return;
 
-  if (currentPageUrl) URL.revokeObjectURL(currentPageUrl);
+  if (currentPageUrl) {
+    URL.revokeObjectURL(currentPageUrl);
+    currentPageUrl = null;
+  }
 
   const imgName = currentManga.images[currentPage];
-  const blob = await currentManga.zip.files[imgName].async("blob");
+  const blob = await currentZip.files[imgName].async("blob");
 
   currentPageUrl = URL.createObjectURL(blob);
   pageImage.src = currentPageUrl;
@@ -285,19 +300,29 @@ async function showPage() {
 }
 
 async function showCascade() {
-  cascadeView.innerHTML = "";
+  if (!currentManga || !currentZip) return;
+
+  cleanupCascade();
+
   pageInfo.textContent = `${currentManga.images.length} páginas`;
 
   for (let i = 0; i < currentManga.images.length; i++) {
     const imgName = currentManga.images[i];
-    const blob = await currentManga.zip.files[imgName].async("blob");
+    const blob = await currentZip.files[imgName].async("blob");
     const url = URL.createObjectURL(blob);
+
+    cascadeUrls.push(url);
 
     const img = document.createElement("img");
     img.src = url;
     img.loading = "lazy";
+    img.decoding = "async";
 
     cascadeView.appendChild(img);
+
+    if (i % 10 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
   }
 
   cascadeLoaded = true;
@@ -314,6 +339,7 @@ modeBtn.addEventListener("click", async () => {
 
     prevBtn.style.display = "none";
     nextBtn.style.display = "none";
+    pageInfo.style.display = "inline-block";
 
     modeBtn.textContent = "Modo paginado";
 
@@ -322,11 +348,14 @@ modeBtn.addEventListener("click", async () => {
   } else {
     readerMode = "paged";
 
+    cleanupCascade();
+
     cascadeView.classList.add("hidden");
     readerPage.classList.remove("hidden");
 
     prevBtn.style.display = "inline-block";
     nextBtn.style.display = "inline-block";
+    pageInfo.style.display = "inline-block";
 
     modeBtn.textContent = "Modo cascada";
 
@@ -342,20 +371,17 @@ prevBtn.addEventListener("click", async () => {
 });
 
 nextBtn.addEventListener("click", async () => {
-  if (currentPage < currentManga.images.length - 1) {
+  if (currentManga && currentPage < currentManga.images.length - 1) {
     currentPage++;
     await showPage();
   }
 });
 
 backBtn.addEventListener("click", () => {
+  cleanupReader();
+
   readerView.classList.add("hidden");
   libraryView.classList.remove("hidden");
-
-  if (currentPageUrl) {
-    URL.revokeObjectURL(currentPageUrl);
-    currentPageUrl = null;
-  }
 });
 
 pdfBtn.addEventListener("click", async () => {
@@ -377,11 +403,13 @@ pdfBtn.addEventListener("click", async () => {
 
 async function downloadPDF(manga) {
   const { jsPDF } = window.jspdf;
+  const zip = currentZip || await JSZip.loadAsync(manga.file);
+
   let pdf = null;
 
   for (let i = 0; i < manga.images.length; i++) {
     const imgName = manga.images[i];
-    const blob = await manga.zip.files[imgName].async("blob");
+    const blob = await zip.files[imgName].async("blob");
 
     const dataUrl = await blobToDataURL(blob);
     const imgData = await loadImage(dataUrl);
@@ -396,9 +424,14 @@ async function downloadPDF(manga) {
       pdf.addPage([width, height], orientation);
     }
 
-    pdf.addImage(dataUrl, "WEBP", 0, 0, width, height);
+    const format = getImageFormat(imgName);
+    pdf.addImage(dataUrl, format, 0, 0, width, height);
 
     pageInfo.textContent = `PDF: ${i + 1} / ${manga.images.length}`;
+
+    if (i % 5 === 0) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
   }
 
   const safeName = manga.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 80);
@@ -406,6 +439,16 @@ async function downloadPDF(manga) {
   pdf.save(`${safeName}.pdf`);
 
   pageInfo.textContent = `${currentPage + 1} / ${currentManga.images.length}`;
+}
+
+function getImageFormat(filename) {
+  const name = filename.toLowerCase();
+
+  if (name.endsWith(".png")) return "PNG";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "JPEG";
+  if (name.endsWith(".webp")) return "WEBP";
+
+  return "JPEG";
 }
 
 function blobToDataURL(blob) {
@@ -425,6 +468,39 @@ function loadImage(src) {
   });
 }
 
+function cleanupCascade() {
+  for (const url of cascadeUrls) {
+    URL.revokeObjectURL(url);
+  }
+
+  cascadeUrls = [];
+  cascadeView.innerHTML = "";
+  cascadeLoaded = false;
+}
+
+function cleanupReader() {
+  if (currentPageUrl) {
+    URL.revokeObjectURL(currentPageUrl);
+    currentPageUrl = null;
+  }
+
+  cleanupCascade();
+
+  pageImage.src = "";
+  currentZip = null;
+  currentManga = null;
+}
+
+function cleanupLibrary() {
+  cleanupReader();
+
+  for (const manga of mangas) {
+    if (manga.coverUrl) {
+      URL.revokeObjectURL(manga.coverUrl);
+    }
+  }
+}
+
 document.addEventListener("keydown", async (event) => {
   if (readerView.classList.contains("hidden")) return;
 
@@ -437,6 +513,10 @@ document.addEventListener("keydown", async (event) => {
 
   if (event.key === "ArrowRight") nextBtn.click();
   if (event.key === "ArrowLeft") prevBtn.click();
+});
+
+window.addEventListener("beforeunload", () => {
+  cleanupLibrary();
 });
 
 function normalize(text) {
